@@ -25,7 +25,7 @@ class CBFQPR1:
     Implements a generic relative degree 1 CBF-QP controller.
     This does not interface directly with a dynamics instance.
     """
-    def __init__(self, nominalCtrlEval, alpha, POSQP):
+    def __init__(self, nominalCtrlEval, alpha, POSQP, node=None):
         """
         Init function for a CBF-QP Controller. This controller works over the 
         relative degree 1 dynamics of the system and outputs a velocity
@@ -35,6 +35,7 @@ class CBFQPR1:
             nominalCtrlEval (Function): Evaluation function from Nominal Controller object
             alpha (float): constant on h in CBF constraint
             POSQP (Sparse matrix): weight matrix in cost function
+            node: ROS2 node for logging (optional)
         """
         # Store CBF parameters
         self.alpha = alpha
@@ -44,6 +45,9 @@ class CBFQPR1:
 
         # Create a nominal controller
         self.nominalCtrlEval = nominalCtrlEval
+        
+        # Store node for logging
+        self.node = node
 
         # Store a variable for the OSQP problem instance
         self.prob = None
@@ -67,23 +71,69 @@ class CBFQPR1:
             # Fallback to nominal controller if OSQP not available
             return self.nominalCtrlEval(t)
         
-        # Assemble a constraint matrix and vector of the correct shape
-        Anp = -Lgh
-        A = sparse.csc_matrix(Anp.tolist())
-        b = self.alpha * h + Lfh
-        q = -self.nominalCtrlEval(t)  # q = -kX
-    
-        # Create an OSQP object and store in self.prob
-        self.prob = osqp.OSQP()
-
-        # Setup workspace and change alpha parameter
-        self.prob.setup(P=self.POSQP, q=q, A=A, u=b, verbose=False, alpha=1.0)
-
-        # Solve problem
-        res = self.prob.solve().x
-
-        # Return optimization output
-        return res.reshape((res.size, 1))
+        try:
+            # Get nominal control input
+            u_nom = self.nominalCtrlEval(t)
+            
+            # Ensure u_nom is a 1D array
+            if u_nom.ndim > 1:
+                q = -u_nom.flatten()
+            else:
+                q = -u_nom
+            
+            # Ensure q has correct shape for optimization dimension (2 for TurtleBot: [v, omega])
+            if q.size != 2:
+                q = np.zeros(2)
+            
+            # Assemble constraint matrix and vector
+            if isinstance(Lgh, (float, int)):
+                # Convert scalar to matrix
+                Lgh = np.array([[Lgh, 0]])
+            elif Lgh.ndim == 1 and Lgh.size == 2:
+                # Convert 1D array to row matrix
+                Lgh = Lgh.reshape(1, -1)
+            
+            # Create constraint matrix A (for A*x <= u constraint, we use -Lgh)
+            Anp = -Lgh
+            A = sparse.csc_matrix(Anp)
+            
+            # Constraint bounds: A*x <= u becomes l <= A*x <= u
+            u_bound = self.alpha * h + Lfh  # upper bound
+            if isinstance(u_bound, (float, int)):
+                u_bound = np.array([u_bound])
+            elif u_bound.ndim > 1:
+                u_bound = u_bound.flatten()
+                
+            # Set lower bounds to -infinity (inequality constraint A*x <= u)
+            l_bound = -np.inf * np.ones_like(u_bound)
+            
+            # Ensure P matrix is in correct format
+            P = self.POSQP
+            if not isinstance(P, sparse.csc_matrix):
+                P = sparse.csc_matrix(P)
+            
+            # Create OSQP problem instance
+            self.prob = osqp.OSQP()
+            
+            # Setup QP: minimize (1/2)x'Px + q'x subject to l <= Ax <= u
+            self.prob.setup(P=P, q=q, A=A, l=l_bound, u=u_bound, verbose=False)
+            
+            # Solve the QP
+            result = self.prob.solve()
+            
+            if result.info.status != 'solved':
+                if hasattr(self, 'node') and self.node:
+                    self.node.get_logger().warn(f"OSQP failed with status: {result.info.status}, using nominal controller")
+                return self.nominalCtrlEval(t)
+            
+            # Extract solution and reshape
+            res = result.x
+            return res.reshape((res.size, 1))
+            
+        except Exception as e:
+            if hasattr(self, 'node') and self.node:
+                self.node.get_logger().error(f"OSQP setup/solve error: {str(e)}, using nominal controller")
+            return self.nominalCtrlEval(t)
     
     def eval_cbf_input(self, h, Lfh, Lgh, t):
         """
@@ -107,7 +157,7 @@ class CBFQPR2:
     Implements a generic relative degree 2 CBF-QP controller.
     This does not interface directly with a dynamics instance.
     """
-    def __init__(self, nominalCtrlEval, alpha0, alpha1, POSQP):
+    def __init__(self, nominalCtrlEval, alpha0, alpha1, POSQP, node=None):
         """
         Init function for a CBF-QP Controller. This controller works over the 
         relative degree 2 dynamics of the system.
@@ -117,6 +167,7 @@ class CBFQPR2:
             alpha0 (float): constant on h in CBF constraint
             alpha1 (float): constant on hDot
             POSQP (Sparse matrix): weight matrix in cost function
+            node: ROS2 node for logging (optional)
         """
         # Store CBF parameters
         self.alpha0 = alpha0  # alpha for h
@@ -127,6 +178,9 @@ class CBFQPR2:
 
         # Create a nominal controller
         self.nominalCtrlEval = nominalCtrlEval
+        
+        # Store node for logging
+        self.node = node
 
         # Store a variable for the OSQP problem instance
         self.prob = None
@@ -150,23 +204,69 @@ class CBFQPR2:
             # Fallback to nominal controller if OSQP not available
             return self.nominalCtrlEval(t)
             
-        # Assemble a constraint matrix and vector of the correct shape
-        Anp = -LgLfh
-        A = sparse.csc_matrix(Anp.tolist())
-        b = self.alpha0 * h + self.alpha1 * Lfh + Lf2h
-        q = -self.nominalCtrlEval(t)  # q = -kX
-    
-        # Create an OSQP object and store in self.prob
-        self.prob = osqp.OSQP()
-
-        # Setup workspace and change alpha parameter
-        self.prob.setup(P=self.POSQP, q=q, A=A, u=b, verbose=False, alpha=1.0)
-
-        # Solve problem
-        res = self.prob.solve().x
-
-        # Return optimization output
-        return res.reshape((res.size, 1))
+        try:
+            # Get nominal control input
+            u_nom = self.nominalCtrlEval(t)
+            
+            # Ensure u_nom is a 1D array
+            if u_nom.ndim > 1:
+                q = -u_nom.flatten()
+            else:
+                q = -u_nom
+            
+            # Ensure q has correct shape for optimization dimension (2 for TurtleBot: [v, omega])
+            if q.size != 2:
+                q = np.zeros(2)
+            
+            # Assemble constraint matrix and vector
+            if isinstance(LgLfh, (float, int)):
+                # Convert scalar to matrix
+                LgLfh = np.array([[LgLfh, 0]])
+            elif LgLfh.ndim == 1 and LgLfh.size == 2:
+                # Convert 1D array to row matrix
+                LgLfh = LgLfh.reshape(1, -1)
+            
+            # Create constraint matrix A (for A*x <= u constraint, we use -LgLfh)
+            Anp = -LgLfh
+            A = sparse.csc_matrix(Anp)
+            
+            # Constraint bounds: A*x <= u becomes l <= A*x <= u
+            u_bound = self.alpha0 * h + self.alpha1 * Lfh + Lf2h  # upper bound
+            if isinstance(u_bound, (float, int)):
+                u_bound = np.array([u_bound])
+            elif u_bound.ndim > 1:
+                u_bound = u_bound.flatten()
+                
+            # Set lower bounds to -infinity (inequality constraint A*x <= u)
+            l_bound = -np.inf * np.ones_like(u_bound)
+            
+            # Ensure P matrix is in correct format
+            P = self.POSQP
+            if not isinstance(P, sparse.csc_matrix):
+                P = sparse.csc_matrix(P)
+            
+            # Create OSQP problem instance
+            self.prob = osqp.OSQP()
+            
+            # Setup QP: minimize (1/2)x'Px + q'x subject to l <= Ax <= u
+            self.prob.setup(P=P, q=q, A=A, l=l_bound, u=u_bound, verbose=False)
+            
+            # Solve the QP
+            result = self.prob.solve()
+            
+            if result.info.status != 'solved':
+                if hasattr(self, 'node') and self.node:
+                    self.node.get_logger().warn(f"OSQP failed with status: {result.info.status}, using nominal controller")
+                return self.nominalCtrlEval(t)
+            
+            # Extract solution and reshape
+            res = result.x
+            return res.reshape((res.size, 1))
+            
+        except Exception as e:
+            if hasattr(self, 'node') and self.node:
+                self.node.get_logger().error(f"OSQP setup/solve error: {str(e)}, using nominal controller")
+            return self.nominalCtrlEval(t)
     
     def eval_cbf_input(self, h, Lfh, Lgh, Lf2h, LgLfh, t):
         """
@@ -231,7 +331,7 @@ class TurtleBotCBFController:
 
         # Store a CBF-QP implementation
         if OSQP_AVAILABLE:
-            self.CBFQP = CBFQPR1(self.nominal_eval, self.alpha0, self.POSQP)
+            self.CBFQP = CBFQPR1(self.nominal_eval, self.alpha0, self.POSQP, self.node)
 
         # Store control input
         self._u = np.zeros((2, 1))
