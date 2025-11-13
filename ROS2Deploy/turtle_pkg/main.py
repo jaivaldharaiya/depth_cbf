@@ -19,7 +19,7 @@ sys.path.append(parent_dir)
 
 from turtle_pkg.state_estimation import EgoTurtlebotObserver
 from turtle_pkg.trajectory import Trajectory
-from turtle_pkg.controller import TurtlebotFBLin, TurtlebotCBFR1
+from turtle_pkg.controller import TurtlebotFBLin, TurtlebotCBFR1, TurtlebotCBFAdvanced
 from turtle_pkg.lidar import Lidar
 from turtle_pkg.pointcloud import PointcloudTurtlebot
 
@@ -63,10 +63,20 @@ def task_controller():
 
         # Set to true to apply CBF-QP control
         useCBFQP = True 
+        useAdvancedCBF = True  # Set to True to use the advanced CBF implementation
+        
         if not useCBFQP:
             controller = TurtlebotFBLin(observer, trajectory, frequency, node)
+            node.get_logger().info("Using Feedback Linearization controller")
+        elif useAdvancedCBF:
+            # Use the advanced CBF controller with full optimization
+            controller = TurtlebotCBFAdvanced(observer, pointcloud, trajectory, lidar, node, 
+                                            DELTA=0.3, alpha0=1.0, alpha1=1.0)
+            node.get_logger().info("Using Advanced CBF-QP controller with optimization")
         else:
+            # Use the simplified CBF controller
             controller = TurtlebotCBFR1(observer, pointcloud, trajectory, lidar, node)
+            node.get_logger().info("Using Simplified CBF controller")
 
         node.get_logger().info("Controller initialized. Starting control loop...")
 

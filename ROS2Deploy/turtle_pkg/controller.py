@@ -14,19 +14,20 @@ import time
 
 try:
     from scipy import sparse
+    import osqp
+    ADVANCED_CBF_AVAILABLE = True
 except ImportError:
-    print("Warning: scipy not available, some controllers may not work")
+    print("Warning: scipy/osqp not available, using simplified CBF controller")
     sparse = None
+    ADVANCED_CBF_AVAILABLE = False
 
-# External dependencies - comment out if not available
+# Import the advanced CBF controllers
 try:
-    sys.path.append('../../../..')
-    from sim.controllers.cbf_controllers import *
-    from depth_processing.depth_proc import *
-    import sim.controllers.cbf_controllers as cs
+    from .cbf_controllers import TurtleBotCBFController, CBFQPR1, CBFQPR2
+    from .depth_proc import DepthProc
     CBF_AVAILABLE = True
 except ImportError:
-    print("Warning: CBF controllers not available, using basic controller only")
+    print("Warning: Advanced CBF controllers not available, using basic controller only")
     CBF_AVAILABLE = False
 
 class Controller:
@@ -178,6 +179,90 @@ class TurtlebotFBLin(Controller):
         # Return the [v, omega] input
         self._u = np.array([[self.vDotInt, w[1, 0]]]).T
         return self._u
+
+# Comprehensive CBF controller using advanced implementation
+class TurtlebotCBFAdvanced(Controller):
+    """
+    Advanced CBF-based controller for TurtleBot3 using full CBF optimization.
+    This uses the integrated CBF controllers from the qrotor_sim_examples.
+    """
+    
+    def __init__(self, observer, pointcloud, trajectory, lidar, node, DELTA=0.3, alpha0=1.0, alpha1=1.0):
+        """
+        Initialize the advanced CBF controller.
+        
+        Args:
+            observer: state observer object
+            pointcloud: pointcloud object
+            trajectory: trajectory object
+            lidar: LiDAR sensor object
+            node: ROS 2 node instance
+            DELTA (float): safety buffer distance
+            alpha0 (float): CBF parameter alpha for h
+            alpha1 (float): CBF parameter alpha for hDot
+        """
+        super().__init__(observer, trajectory, node)
+        
+        self.pointcloud = pointcloud
+        self.lidar = lidar
+        
+        if CBF_AVAILABLE and ADVANCED_CBF_AVAILABLE:
+            # Use the advanced CBF controller
+            self.cbf_controller = TurtleBotCBFController(
+                observer, trajectory, lidar, node, DELTA, alpha0, alpha1
+            )
+            self.use_advanced = True
+            if node:
+                node.get_logger().info("Using advanced CBF controller with optimization")
+        else:
+            # Fallback to simplified CBF
+            self.cbf_controller = TurtlebotCBFR1(observer, pointcloud, trajectory, lidar, node)
+            self.use_advanced = False
+            if node:
+                node.get_logger().warn("Using simplified CBF controller (missing dependencies)")
+        
+        # Store publisher
+        self.previous_u_input = np.array([0., 0.]).reshape((2, 1))
+        if self.node:
+            self.pub = self.node.create_publisher(Twist, '/cmd_vel', 10)
+
+    def eval_input(self, t, save=False):
+        """
+        Evaluate the input using the CBF controller.
+        
+        Args:
+            t (float): current time in simulation
+            save (bool): save the CBF value for analysis
+            
+        Returns:
+            numpy.ndarray: safe velocity for TurtleBot navigation
+        """
+        try:
+            # Use the appropriate CBF controller
+            if self.use_advanced:
+                self._u = self.cbf_controller.eval_input(t, save)
+            else:
+                self._u = self.cbf_controller.eval_input(t, save)
+                
+            return self._u
+            
+        except Exception as e:
+            if self.node:
+                self.node.get_logger().error(f"Error in CBF controller evaluation: {str(e)}")
+            # Return zero input in case of error
+            self._u = np.zeros((2, 1))
+            return self._u
+    
+    def apply_input(self):
+        """Apply the computed control input."""
+        if not self.node:
+            return
+            
+        msg = Twist()
+        msg.linear.x = float(self._u[0, 0])
+        msg.angular.z = float(self._u[1, 0])
+        self.previous_u_input = self._u
+        self.pub.publish(msg)
 
 # Simplified CBF controller for when external libraries are not available
 class TurtlebotCBFR1(Controller):

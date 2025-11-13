@@ -23,6 +23,7 @@ setup(
         'setuptools',
         'numpy',
         'scipy',
+        'osqp',  # For CBF optimization
     ],
     zip_safe=True,
     maintainer='Package Maintainer',
