@@ -35,6 +35,7 @@ setup(
         'console_scripts': [
             'turtlebot_controller = turtle_pkg.main:main',
             'cbf_controller = turtle_pkg.main:main',
+            'simple_test = simple_test:main',
         ],
     },
 )

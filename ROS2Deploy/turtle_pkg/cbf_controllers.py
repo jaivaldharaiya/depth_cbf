@@ -244,14 +244,26 @@ class TurtleBotCBFController:
             t (float): current time
             
         Returns:
-            numpy.ndarray: nominal control input
+            numpy.ndarray: nominal control input [linear_vel, angular_vel]
         """
         x = self.observer.get_pos()
         if self.trajectory:
             xD = self.trajectory.pos(t)
             # Simple proportional control for position tracking
             error = xD - x
-            return self.kX * error[0:2]  # Only x, y for TurtleBot
+            
+            # Convert position error to TurtleBot control commands
+            # Linear velocity proportional to forward error
+            linear_vel = self.kX * error[0, 0]  # x-direction error
+            
+            # Angular velocity proportional to lateral error (simplified)
+            angular_vel = self.kX * error[1, 0]  # y-direction error
+            
+            # Limit velocities for safety
+            linear_vel = np.clip(linear_vel, -0.5, 0.5)   # max 0.5 m/s
+            angular_vel = np.clip(angular_vel, -1.0, 1.0)  # max 1.0 rad/s
+            
+            return np.array([[linear_vel], [angular_vel]])
         return np.zeros((2, 1))
 
     def h(self, q, qC):
@@ -324,7 +336,7 @@ class TurtleBotCBFController:
 
             # Update the pointcloud with the latest LiDAR reading
             lidar_data = self.lidar.get_pointcloud()
-            if lidar_data is not None:
+            if lidar_data is not None and lidar_data["ptcloud"].shape[1] > 0:
                 self.pointcloud.update_pointcloud(lidar_data)
 
                 # Compute the approximation of the CBF using 2D fit
@@ -366,8 +378,8 @@ class TurtleBotCBFController:
             else:
                 # No LiDAR data available, use nominal controller
                 self._u = self.nominal_eval(t)
-                if self.node:
-                    self.node.get_logger().warn("No LiDAR data available")
+                if self.node and save:
+                    self.node.get_logger().info(f"No LiDAR data - using nominal control: [{self._u[0,0]:.3f}, {self._u[1,0]:.3f}]")
 
             return self._u
             

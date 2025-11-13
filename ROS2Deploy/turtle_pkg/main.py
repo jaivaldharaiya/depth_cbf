@@ -45,7 +45,7 @@ def task_controller():
         # Trajectory
         start_position = np.array([[0, 0, 0]]).T
         end_position = np.array([[3, 0, 0]]).T
-        time_duration = 1
+        time_duration = 10  # Increased to 10 seconds for slower movement
         trajectory = Trajectory(start_position, end_position, time_duration)
 
         # Lidar
@@ -77,9 +77,16 @@ def task_controller():
         node.get_logger().info("Controller initialized. Starting control loop...")
 
         # Loop until the node is killed with Ctrl-C
+        control_count = 0
         while rclpy.ok():
             t = node.get_clock().now().nanoseconds / 1e9 - start_time
             t1 = node.get_clock().now().nanoseconds / 1e9
+            
+            # Debug: Print trajectory progress every 100 iterations
+            if control_count % 100 == 0:
+                current_pos = observer.get_state()
+                target_pos = trajectory.pos(t)
+                node.get_logger().info(f"Time: {t:.2f}s, Current: [{current_pos[0,0]:.2f}, {current_pos[1,0]:.2f}], Target: [{target_pos[0,0]:.2f}, {target_pos[1,0]:.2f}]")
             
             # Update the pointcloud dictionary and pass it into the pointcloud object
             ptcloudDict["stateVec"] = observer.get_state()
@@ -87,12 +94,25 @@ def task_controller():
             pointcloud.update_pointcloud(ptcloudDict)
 
             # Evaluate and apply the control input
-            controller.eval_input(t, save=True)
+            u = controller.eval_input(t, save=True)
             controller.apply_input()
+            
+            # Debug: Print control input every 100 iterations
+            if control_count % 100 == 0:
+                node.get_logger().info(f"Control input: linear.x={u[0,0]:.3f}, angular.z={u[1,0]:.3f}")
+            
             t2 = node.get_clock().now().nanoseconds / 1e9
 
             # Update the frequency list
             freqList.append(1/(t2 - t1))
+            control_count += 1
+            
+            # Reset trajectory when complete to keep robot moving
+            if t > time_duration:
+                node.get_logger().info("Trajectory complete, restarting...")
+                start_time = node.get_clock().now().nanoseconds / 1e9  # Reset start time
+                control_count = 0
+            
             rclpy.spin_once(node, timeout_sec=1.0/frequency)
 
     except Exception as e:
