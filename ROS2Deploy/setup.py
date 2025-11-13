@@ -36,6 +36,7 @@ setup(
             'turtlebot_controller = turtle_pkg.main:main',
             'cbf_controller = turtle_pkg.main:main',
             'simple_test = simple_test:main',
+            'diagnostic = turtle_pkg.diagnostic:main',
         ],
     },
 )

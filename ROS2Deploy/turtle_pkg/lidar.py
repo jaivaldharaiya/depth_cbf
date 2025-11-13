@@ -66,6 +66,9 @@ class Lidar:
         Get the current point cloud data.
         
         Returns:
-            numpy.ndarray: 3xN array containing point cloud coordinates
+            dict: Dictionary with "ptcloud" and "stateVec" keys
         """
-        return self._pointcloud
+        return {
+            "ptcloud": self._pointcloud,
+            "stateVec": np.zeros((3, 1))  # Placeholder state vector
+        }

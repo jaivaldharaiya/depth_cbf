@@ -385,9 +385,10 @@ class TurtleBotCBFController:
             
         except Exception as e:
             if self.node:
-                self.node.get_logger().error(f"Error in CBF controller: {str(e)}")
-            # Return zero input in case of error
-            self._u = np.zeros((2, 1))
+                self.node.get_logger().error(f"CBF Controller Error: {str(e)}")
+                self.node.get_logger().error(f"Using emergency fallback - nominal controller")
+            # Use nominal controller as fallback
+            self._u = self.nominal_eval(t)
             return self._u
 
     def get_input(self):

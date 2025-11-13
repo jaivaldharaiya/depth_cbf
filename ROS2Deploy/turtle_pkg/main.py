@@ -12,6 +12,8 @@ import numpy as np
 import os
 import sys
 
+from std_srvs.srv import SetBool
+
 # Import package modules using relative imports
 from .state_estimation import EgoTurtlebotObserver
 from .trajectory import Trajectory
@@ -75,6 +77,20 @@ def task_controller():
             node.get_logger().info("Using Simplified CBF controller")
 
         node.get_logger().info("Controller initialized. Starting control loop...")
+
+        # Enable motor power
+        motor_client = node.create_client(SetBool, '/motor_power')
+        if motor_client.wait_for_service(timeout_sec=5.0):
+            motor_request = SetBool.Request()
+            motor_request.data = True
+            future = motor_client.call_async(motor_request)
+            rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+            if future.result() and future.result().success:
+                node.get_logger().info("✅ Motor power enabled successfully")
+            else:
+                node.get_logger().warn("⚠️  Failed to enable motor power, but continuing...")
+        else:
+            node.get_logger().warn("⚠️  Motor power service not available, but continuing...")
 
         # Loop until the node is killed with Ctrl-C
         control_count = 0
