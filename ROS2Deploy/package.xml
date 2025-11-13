@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>turtle_pkg</name>
+  <version>1.0.0</version>
+  <description>Point Cloud-Based Control Barrier Function Regression for Safe and Efficient Vision-Based Control on TurtleBot3</description>
+  
+  <maintainer email="maintainer@example.com">Package Maintainer</maintainer>
+  
+  <license>MIT</license>
+  
+  <url type="website">https://github.com/your-repo/depth_cbf</url>
+  <url type="bugtracker">https://github.com/your-repo/depth_cbf/issues</url>
+  <url type="repository">https://github.com/your-repo/depth_cbf</url>
+  
+  <author email="jaivaldharaiaya@gmail.com">Jaival Dharaiaya</author>
+  
+  <buildtool_depend>ament_python</buildtool_depend>
+  
+  <!-- Runtime dependencies -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>tf_transformations</exec_depend>
+  
+  <!-- Python dependencies -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  
+  <!-- Test dependencies -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+
+</package>
