@@ -103,7 +103,7 @@ def task_controller():
             if control_count % 100 == 0:
                 current_pos = observer.get_state()
                 target_pos = trajectory.pos(t)
-                node.get_logger().info(f"Time: {t:.2f}s, Current: [{current_pos[0,0]:.2f}, {current_pos[1,0]:.2f}], Target: [{target_pos[0,0]:.2f}, {target_pos[1,0]:.2f}]")
+                node.get_logger().info(f"Time: {t:.2f}s, Current: [{float(current_pos[0,0]):.2f}, {float(current_pos[1,0]):.2f}], Target: [{float(target_pos[0,0]):.2f}, {float(target_pos[1,0]):.2f}]")
             
             # Update the pointcloud dictionary and pass it into the pointcloud object
             ptcloudDict["stateVec"] = observer.get_state()
@@ -117,7 +117,7 @@ def task_controller():
             
             # Debug: Print control input every 100 iterations
             if control_count % 100 == 0:
-                node.get_logger().info(f"Control input: linear.x={u[0,0]:.3f}, angular.z={u[1,0]:.3f}")
+                node.get_logger().info(f"Control input: linear.x={float(u[0,0]):.3f}, angular.z={float(u[1,0]):.3f}")
             
             t2 = node.get_clock().now().nanoseconds / 1e9
 

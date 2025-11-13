@@ -34,7 +34,7 @@ class DiagnosticNode(Node):
         valid_ranges = [r for r in msg.ranges if not np.isnan(r) and not np.isinf(r)]
         if valid_ranges:
             min_range = min(valid_ranges)
-            self.get_logger().info(f"Scan #{self.scan_count}: {len(valid_ranges)} valid points, min_range={min_range:.2f}m")
+            self.get_logger().info(f"Scan #{self.scan_count}: {len(valid_ranges)} valid points, min_range={float(min_range):.2f}m")
     
     def diagnostic_callback(self):
         """Send diagnostic information and test commands."""
@@ -48,7 +48,7 @@ class DiagnosticNode(Node):
         msg.angular.z = 0.0
         
         self.cmd_pub.publish(msg)
-        self.get_logger().info(f"Published cmd_vel: linear.x={msg.linear.x}, angular.z={msg.angular.z}")
+        self.get_logger().info(f"Published cmd_vel: linear.x={float(msg.linear.x)}, angular.z={float(msg.angular.z)}")
         
         # Check topics
         topic_names = self.get_topic_names_and_types()

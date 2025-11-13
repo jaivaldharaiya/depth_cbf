@@ -473,13 +473,14 @@ class TurtleBotCBFController:
                         
                 if save and self.node:
                     # Log CBF data for analysis
-                    self.node.get_logger().info(f"CBF value: {h_val:.3f}, Control: [{self._u[0,0]:.3f}, {self._u[1,0]:.3f}]")
+                    h_val_float = float(h_val) if hasattr(h_val, 'item') else float(h_val)
+                    self.node.get_logger().info(f"CBF value: {h_val_float:.3f}, Control: [{float(self._u[0,0]):.3f}, {float(self._u[1,0]):.3f}]")
                     
             else:
                 # No LiDAR data available, use nominal controller
                 self._u = self.nominal_eval(t)
                 if self.node and save:
-                    self.node.get_logger().info(f"No LiDAR data - using nominal control: [{self._u[0,0]:.3f}, {self._u[1,0]:.3f}]")
+                    self.node.get_logger().info(f"No LiDAR data - using nominal control: [{float(self._u[0,0]):.3f}, {float(self._u[1,0]):.3f}]")
 
             return self._u
             

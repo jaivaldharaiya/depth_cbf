@@ -358,7 +358,7 @@ class TurtlebotCBFR1(Controller):
                         # Emergency stop if too close
                         vD = np.zeros((3, 1))
                         if self.node:
-                            self.node.get_logger().warn(f"Obstacle too close! Distance: {min_dist:.3f}")
+                            self.node.get_logger().warn(f"Obstacle too close! Distance: {float(min_dist):.3f}")
                     else:
                         # Use nominal controller
                         vD = self.nominal_eval(t)
