@@ -33,11 +33,28 @@ class DepthProc:
         Returns:
             tuple: (closest_point, index)
         """
+        # Check if pointcloud and kdtree are valid
+        if (self.pointcloud is None or 
+            self.pointcloud.kdtree is None or 
+            self.pointcloud.get_ptcloud_s() is None or 
+            self.pointcloud.get_ptcloud_s().shape[1] == 0):
+            # Return a safe default point far from the robot
+            return np.array([[10.0], [0.0], [0.0]]), 0
+        
         # Find closest point using the kd tree
-        dist, index = self.pointcloud.kdtree.query(qS[:, 0], k=1)
+        try:
+            dist, index = self.pointcloud.kdtree.query(qS[:, 0], k=1)
+        except Exception:
+            # Return a safe default point if query fails
+            return np.array([[10.0], [0.0], [0.0]]), 0
 
         # Extract the point at iMin and return it
-        return self.pointcloud.get_ptcloud_s()[:, index].reshape((3, 1)), index
+        ptcloud_s = self.pointcloud.get_ptcloud_s()
+        if index >= ptcloud_s.shape[1]:
+            # Return a safe default point if index is invalid
+            return np.array([[10.0], [0.0], [0.0]]), 0
+        
+        return ptcloud_s[:, index].reshape((3, 1)), index
     
     def get_closest_points(self, qSMatrix):
         """
@@ -49,17 +66,33 @@ class DepthProc:
         Returns:
             numpy.ndarray: 3xN matrix of closest points
         """
-        # Find closest points using the kd tree
-        dist, index = self.pointcloud.kdtree.query(qSMatrix.T)
+        # Check if pointcloud and kdtree are valid
+        if (self.pointcloud is None or 
+            self.pointcloud.kdtree is None or 
+            self.pointcloud.get_ptcloud_s() is None or 
+            self.pointcloud.get_ptcloud_s().shape[1] == 0):
+            # Return safe default points far from the robot
+            return np.ones((3, qSMatrix.shape[1])) * 10.0
+        
+        try:
+            # Find closest points using the kd tree
+            dist, index = self.pointcloud.kdtree.query(qSMatrix.T)
 
-        # Get all of the points at each index and return
-        index = index.tolist()
-        ptcloudS = self.pointcloud.get_ptcloud_s()
-        closestPts = np.zeros((3, len(index)))
-        for i in range(len(index)):
-            # Extract the point at i and add it to the matrix
-            closestPts[:, i] = ptcloudS[:, index[i]]
-        return closestPts
+            # Get all of the points at each index and return
+            index = index.tolist()
+            ptcloudS = self.pointcloud.get_ptcloud_s()
+            closestPts = np.zeros((3, len(index)))
+            for i in range(len(index)):
+                # Extract the point at i and add it to the matrix
+                if index[i] < ptcloudS.shape[1]:
+                    closestPts[:, i] = ptcloudS[:, index[i]]
+                else:
+                    # Use safe default if index invalid
+                    closestPts[:, i] = [10.0, 0.0, 0.0]
+            return closestPts
+        except Exception:
+            # Return safe default points if query fails
+            return np.ones((3, qSMatrix.shape[1])) * 10.0
 
     def get_neighbors(self, q, r):
         """
@@ -72,17 +105,36 @@ class DepthProc:
         Returns:
             numpy.ndarray: 3xN matrix of neighboring points
         """
-        # Find indices of all points within distance r of point q
-        indexList = self.pointcloud.kdtree.query_ball_point(q[0:3, 0], r=r)
-
-        # Form a matrix using the index list
-        neighbors = np.zeros((3, len(indexList)))
-        for i in range(len(indexList)):
-            # Get the ith column of the pointcloud
-            neighbors[:, i] = self.pointcloud.get_ptcloud_s()[:, indexList[i]]
+        # Check if pointcloud and kdtree are valid
+        if (self.pointcloud is None or 
+            self.pointcloud.kdtree is None or 
+            self.pointcloud.get_ptcloud_s() is None or 
+            self.pointcloud.get_ptcloud_s().shape[1] == 0):
+            # Return a safe default point
+            return np.array([[10.0], [0.0], [0.0]])
         
-        # Return nearest neighbors
-        return neighbors
+        try:
+            # Find indices of all points within distance r of point q
+            indexList = self.pointcloud.kdtree.query_ball_point(q[0:3, 0], r=r)
+
+            if not indexList:  # Empty list
+                return np.array([[10.0], [0.0], [0.0]])
+
+            # Form a matrix using the index list
+            neighbors = np.zeros((3, len(indexList)))
+            ptcloudS = self.pointcloud.get_ptcloud_s()
+            for i in range(len(indexList)):
+                # Get the ith column of the pointcloud
+                if indexList[i] < ptcloudS.shape[1]:
+                    neighbors[:, i] = ptcloudS[:, indexList[i]]
+                else:
+                    neighbors[:, i] = [10.0, 0.0, 0.0]
+        
+            # Return nearest neighbors
+            return neighbors
+        except Exception:
+            # Return safe default if query fails
+            return np.array([[10.0], [0.0], [0.0]])
 
     def get_normal_vec(self, q, A, b, c):
         """

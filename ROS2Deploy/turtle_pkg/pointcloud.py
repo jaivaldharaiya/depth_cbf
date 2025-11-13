@@ -89,8 +89,21 @@ class Pointcloud:
         """
         Calculates the pointcloud in the spatial frame. Updates the class attribute.
         """
+        # Check if we have valid pointcloud data
+        if self.ptcloudQ is None or self.ptcloudQ.size == 0:
+            # Initialize with a default safe pointcloud (single point far away)
+            self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
+            return self.ptcloudS
+            
         # Calculate position and orientation at time of photo
         qPhoto, RPhoto = self.get_pos_orient_photo()
+        
+        # Check dimensions before matrix multiplication
+        if self.ptcloudQ.ndim < 2 or self.ptcloudQ.shape[1] == 0:
+            # Initialize with a default safe pointcloud
+            self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
+            return self.ptcloudS
+            
         # Convert the ptcloud into the spatial frame and store in class attribute
         self.ptcloudS = RPhoto @ self.ptcloudQ + qPhoto
         return self.ptcloudS
@@ -100,12 +113,21 @@ class Pointcloud:
         Master update function. Updates the dictionary and attributes
         and computes the pointcloud in the spatial frame.
         """
+        # Check if we have valid pointcloud data
+        if ptcloudDict is None or "ptcloud" not in ptcloudDict:
+            return
+            
+        # Validate pointcloud dimensions
+        ptcloud = ptcloudDict["ptcloud"]
+        if ptcloud is None or ptcloud.size == 0:
+            return
+            
         # Update the dictionary and robot frame attributes
         self.update_ptcloudDict(ptcloudDict)
         # Update the world frame pointcloud
         self.calc_ptcloud_s()
-        # Update the KD tree
-        if self.ptcloudS is not None:
+        # Update the KD tree only if we have valid spatial pointcloud
+        if self.ptcloudS is not None and self.ptcloudS.shape[1] > 0:
             self.kdtree = KDTree(self.get_ptcloud_s().T)
 
 class PointcloudQrotor(Pointcloud):

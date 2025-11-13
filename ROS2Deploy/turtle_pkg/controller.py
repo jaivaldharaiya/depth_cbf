@@ -338,33 +338,43 @@ class TurtlebotCBFR1(Controller):
             # Get the position of the turtlebot
             q = self.observer.get_pos()
             
+            # Initialize default values
+            h_val = np.array([[1.0]])  # Safe default CBF value
+            
             # Simple obstacle avoidance based on minimum distance
             ptcloud = self.pointcloud.get_ptcloud_s()
-            if ptcloud is not None and ptcloud.shape[1] > 0:
+            if ptcloud is not None and ptcloud.ndim == 2 and ptcloud.shape[1] > 0:
                 # Find closest point
                 distances = np.linalg.norm(ptcloud - q, axis=0)
-                min_dist = np.min(distances)
-                min_idx = np.argmin(distances)
-                qC = ptcloud[:, min_idx].reshape((3, 1))
-                
-                # Compute barrier function
-                h_val = self.h(q, qC)
-                
-                if min_dist < self.DELTA:
-                    # Emergency stop if too close
-                    vD = np.zeros((3, 1))
-                    if self.node:
-                        self.node.get_logger().warn(f"Obstacle too close! Distance: {min_dist:.3f}")
+                if distances.size > 0:  # Check if distances array is not empty
+                    min_dist = np.min(distances)
+                    min_idx = np.argmin(distances)
+                    qC = ptcloud[:, min_idx].reshape((3, 1))
+                    
+                    # Compute barrier function
+                    h_val = self.h(q, qC)
+                    
+                    if min_dist < self.DELTA:
+                        # Emergency stop if too close
+                        vD = np.zeros((3, 1))
+                        if self.node:
+                            self.node.get_logger().warn(f"Obstacle too close! Distance: {min_dist:.3f}")
+                    else:
+                        # Use nominal controller
+                        vD = self.nominal_eval(t)
                 else:
-                    # Use nominal controller
+                    # Empty distances array, use nominal controller
                     vD = self.nominal_eval(t)
             else:
-                # No obstacles detected, use nominal controller
+                # No obstacles detected or invalid pointcloud, use nominal controller
                 vD = self.nominal_eval(t)
-                h_val = np.array([[1.0]])
             
             # Convert to turtlebot input
             self._u = self.velControl.eval_input(t, vD)
+            
+            # Ensure control input is valid
+            if self._u is None or self._u.size == 0:
+                self._u = np.zeros((2, 1))
             
             if save and self.node:
                 # Publish system data
