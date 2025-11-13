@@ -90,8 +90,22 @@ class Pointcloud:
         Calculates the pointcloud in the spatial frame. Updates the class attribute.
         """
         # Check if we have valid pointcloud data
-        if self.ptcloudQ is None or self.ptcloudQ.size == 0:
+        if self.ptcloudQ is None:
             # Initialize with a default safe pointcloud (single point far away)
+            self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
+            return self.ptcloudS
+            
+        # Check if ptcloudQ is a numpy array and has valid size
+        if isinstance(self.ptcloudQ, np.ndarray):
+            if self.ptcloudQ.size == 0:
+                self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
+                return self.ptcloudS
+        elif hasattr(self.ptcloudQ, '__len__'):
+            if len(self.ptcloudQ) == 0:
+                self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
+                return self.ptcloudS
+        else:
+            # Unknown type, use safe default
             self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
             return self.ptcloudS
             
@@ -99,7 +113,9 @@ class Pointcloud:
         qPhoto, RPhoto = self.get_pos_orient_photo()
         
         # Check dimensions before matrix multiplication
-        if self.ptcloudQ.ndim < 2 or self.ptcloudQ.shape[1] == 0:
+        if (not isinstance(self.ptcloudQ, np.ndarray) or 
+            self.ptcloudQ.ndim < 2 or 
+            self.ptcloudQ.shape[1] == 0):
             # Initialize with a default safe pointcloud
             self.ptcloudS = np.array([[10.0], [0.0], [0.0]])
             return self.ptcloudS
@@ -119,7 +135,18 @@ class Pointcloud:
             
         # Validate pointcloud dimensions
         ptcloud = ptcloudDict["ptcloud"]
-        if ptcloud is None or ptcloud.size == 0:
+        if ptcloud is None:
+            return
+            
+        # Check if ptcloud is a numpy array and has valid size
+        if isinstance(ptcloud, np.ndarray):
+            if ptcloud.size == 0:
+                return
+        elif hasattr(ptcloud, '__len__'):
+            if len(ptcloud) == 0:
+                return
+        else:
+            # If it's neither array nor has length, skip
             return
             
         # Update the dictionary and robot frame attributes
@@ -127,7 +154,10 @@ class Pointcloud:
         # Update the world frame pointcloud
         self.calc_ptcloud_s()
         # Update the KD tree only if we have valid spatial pointcloud
-        if self.ptcloudS is not None and self.ptcloudS.shape[1] > 0:
+        if (self.ptcloudS is not None and 
+            isinstance(self.ptcloudS, np.ndarray) and 
+            self.ptcloudS.ndim >= 2 and 
+            self.ptcloudS.shape[1] > 0):
             self.kdtree = KDTree(self.get_ptcloud_s().T)
 
 class PointcloudQrotor(Pointcloud):

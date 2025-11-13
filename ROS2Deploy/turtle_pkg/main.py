@@ -53,9 +53,10 @@ def task_controller():
         # Lidar
         lidar = Lidar(node)
 
-        # Pointcloud -> initialize with an empty dictionary
+        # Pointcloud -> initialize with proper structure
+        lidar_data = lidar.get_pointcloud()
         ptcloudDict = {}
-        ptcloudDict["ptcloud"] = lidar.get_pointcloud()
+        ptcloudDict["ptcloud"] = lidar_data["ptcloud"]
         ptcloudDict["stateVec"] = np.zeros((3, 1))
         pointcloud = PointcloudTurtlebot(ptcloudDict)
 
@@ -106,7 +107,8 @@ def task_controller():
             
             # Update the pointcloud dictionary and pass it into the pointcloud object
             ptcloudDict["stateVec"] = observer.get_state()
-            ptcloudDict["ptcloud"] = lidar.get_pointcloud()
+            lidar_data = lidar.get_pointcloud()
+            ptcloudDict["ptcloud"] = lidar_data["ptcloud"]
             pointcloud.update_pointcloud(ptcloudDict)
 
             # Evaluate and apply the control input
