@@ -12,16 +12,12 @@ import numpy as np
 import os
 import sys
 
-# Add path for external dependencies
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-sys.path.append(parent_dir)
-
-from turtle_pkg.state_estimation import EgoTurtlebotObserver
-from turtle_pkg.trajectory import Trajectory
-from turtle_pkg.controller import TurtlebotFBLin, TurtlebotCBFR1, TurtlebotCBFAdvanced
-from turtle_pkg.lidar import Lidar
-from turtle_pkg.pointcloud import PointcloudTurtlebot
+# Import package modules using relative imports
+from .state_estimation import EgoTurtlebotObserver
+from .trajectory import Trajectory
+from .controller import TurtlebotFBLin, TurtlebotCBFR1, TurtlebotCBFAdvanced
+from .lidar import Lidar
+from .pointcloud import PointcloudTurtlebot
 
 def task_controller():
     """
