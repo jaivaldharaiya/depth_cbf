@@ -47,7 +47,7 @@ def task_controller():
         # Trajectory
         start_position = np.array([[0, 0, 0]]).T
         end_position = np.array([[3, 0, 0]]).T
-        time_duration = 10  # Increased to 10 seconds for slower movement
+        time_duration = 1  # Increased to 10 seconds for slower movement
         trajectory = Trajectory(start_position, end_position, time_duration)
 
         # Lidar
