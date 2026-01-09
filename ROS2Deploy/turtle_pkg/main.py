@@ -47,7 +47,7 @@ def task_controller():
         # Trajectory
         start_position = np.array([[0, 0, 0]]).T
         end_position = np.array([[3, 0, 0]]).T
-        time_duration = 1  # Increased to 10 seconds for slower movement
+        time_duration = 20  # Increased to 10 seconds for slower movement
         trajectory = Trajectory(start_position, end_position, time_duration)
 
         # Lidar
@@ -61,8 +61,8 @@ def task_controller():
         pointcloud = PointcloudTurtlebot(ptcloudDict)
 
         # Set to true to apply CBF-QP control
-        useCBFQP = True 
-        useAdvancedCBF = True  # Set to True to use the advanced CBF implementation
+        useCBFQP = False 
+        useAdvancedCBF = False  # Set to True to use the advanced CBF implementation
         
         if not useCBFQP:
             controller = TurtlebotFBLin(observer, trajectory, frequency, node)
